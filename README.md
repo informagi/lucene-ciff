@@ -50,6 +50,21 @@ codecs, such as the [SimpleText
 codec](https://blog.mikemccandless.com/2010/10/lucenes-simpletext-codec.html)
 for easy debugging, or the Lucene90 codec for efficient retrieval.
 
+To run the application, we can issue the following command:
+
+    $ mvn compile exec:java \
+        -Dexec.mainClass="nl.ru.ciffimporter.CiffImporter" \
+        -Dexec.args="INPUT OUTPUT [CODEC]"
+
+INPUT should be the CIFF file you are trying to import. OUTPUT is the (non-existing)
+directory that will be created for the Lucene index. CODEC is an optional argument
+that can be used to specify the codec Lucene will use for writing out the index. For
+instance, you can provide `SimpleText` as codec to generate a human-readable text
+index. If not specified, the default Lucene codec (i.e. the latest version) will be
+used.
+
+### Sanity check: CIFF -> Lucene -> CIFF
+
 If we import a CIFF index into Lucene, and then re-export it, we see that
 the result is identical to the original CIFF file.
 
