@@ -56,6 +56,11 @@ To run the application, we can issue the following command:
         -Dexec.mainClass="nl.ru.ciffimporter.CiffImporter" \
         -Dexec.args="INPUT OUTPUT [CODEC]"
 
+Alternatively, we can package the importer into a standalone application as follows:
+
+    $ mvn clean package appassembler:assemble
+    $ ./target/appassembler/bin/CiffImporter INPUT OUTPUT [CODEC]
+
 INPUT should be the CIFF file you are trying to import. OUTPUT is the (non-existing)
 directory that will be created for the Lucene index. CODEC is an optional argument
 that can be used to specify the codec Lucene will use for writing out the index. For
