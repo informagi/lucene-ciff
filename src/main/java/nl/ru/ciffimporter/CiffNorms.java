@@ -2,6 +2,7 @@ package nl.ru.ciffimporter;
 
 import org.apache.lucene.index.NumericDocValues;
 import org.apache.lucene.search.DocIdSetIterator;
+import org.apache.lucene.util.SmallFloat;
 
 import static io.osirrc.ciff.CommonIndexFileFormat.DocRecord;
 
@@ -16,7 +17,7 @@ public class CiffNorms extends NumericDocValues {
 
     @Override
     public long longValue() {
-        return docRecords[docID].getDoclength();
+        return SmallFloat.intToByte4(docRecords[docID].getDoclength());
     }
 
     @Override
