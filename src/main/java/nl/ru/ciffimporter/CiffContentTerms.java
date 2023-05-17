@@ -10,12 +10,12 @@ import java.util.TreeMap;
 import static io.osirrc.ciff.CommonIndexFileFormat.Header;
 import static io.osirrc.ciff.CommonIndexFileFormat.PostingsList;
 
-public class CiffTerms extends Terms {
+public class CiffContentTerms extends Terms {
 
     private final Header header;
     private final SortedMap<BytesRef, PostingsList> postingsLists;
 
-    public CiffTerms(Header header, PostingsList[] postingsLists) {
+    public CiffContentTerms(Header header, PostingsList[] postingsLists) {
         this.header = header;
 
         this.postingsLists = new TreeMap<>();
@@ -26,7 +26,7 @@ public class CiffTerms extends Terms {
 
     @Override
     public TermsEnum iterator() {
-        return new CiffTermsEnum(postingsLists);
+        return new CiffContentTermsEnum(postingsLists);
     }
 
     @Override

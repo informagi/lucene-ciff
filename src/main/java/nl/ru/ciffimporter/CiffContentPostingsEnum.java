@@ -8,14 +8,14 @@ import java.util.List;
 
 import static io.osirrc.ciff.CommonIndexFileFormat.Posting;
 
-public class CiffPostingsEnum extends PostingsEnum {
+public class CiffContentPostingsEnum extends PostingsEnum {
 
     private final Iterator<Posting> postingsIterator;
     private final int numPostings;
     private int docID = -1;
     private int freq;
 
-    public CiffPostingsEnum(List<Posting> postings) {
+    public CiffContentPostingsEnum(List<Posting> postings) {
         this.postingsIterator = postings.iterator();
         this.numPostings = postings.size();
     }

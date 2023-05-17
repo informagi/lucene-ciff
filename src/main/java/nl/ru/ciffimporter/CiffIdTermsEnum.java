@@ -9,23 +9,23 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.SortedMap;
 
-import static io.osirrc.ciff.CommonIndexFileFormat.PostingsList;
+import static io.osirrc.ciff.CommonIndexFileFormat.DocRecord;
 
 
-public class CiffTermsEnum extends BaseTermsEnum {
+public class CiffIdTermsEnum extends BaseTermsEnum {
 
-    private final SortedMap<BytesRef, PostingsList> postingsLists;
-    private Iterator<Map.Entry<BytesRef, PostingsList>> iterator;
-    private Map.Entry<BytesRef, PostingsList> current;
+    private final SortedMap<BytesRef, DocRecord> docRecords;
+    private Iterator<Map.Entry<BytesRef, DocRecord>> iterator;
+    private Map.Entry<BytesRef, DocRecord> current;
 
-    public CiffTermsEnum(SortedMap<BytesRef, PostingsList> postingsLists) {
-        this.postingsLists = postingsLists;
-        this.iterator = postingsLists.entrySet().iterator();
+    public CiffIdTermsEnum(SortedMap<BytesRef, DocRecord> docRecords) {
+        this.docRecords = docRecords;
+        this.iterator = docRecords.entrySet().iterator();
     }
 
     @Override
     public SeekStatus seekCeil(BytesRef text) {
-        SortedMap<BytesRef, PostingsList> tailMap = postingsLists.tailMap(text);
+        SortedMap<BytesRef, DocRecord> tailMap = docRecords.tailMap(text);
         if (tailMap.isEmpty()) {
             return SeekStatus.END;
         } else {
@@ -57,17 +57,17 @@ public class CiffTermsEnum extends BaseTermsEnum {
 
     @Override
     public int docFreq() {
-        return (int) current.getValue().getDf();
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public long totalTermFreq() {
-        return current.getValue().getCf();
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public PostingsEnum postings(PostingsEnum reuse, int flags) {
-        return new CiffPostingsEnum(current.getValue().getPostingsList());
+        return new CiffIdPostingsEnum(current.getValue());
     }
 
     @Override

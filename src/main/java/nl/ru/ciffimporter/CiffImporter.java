@@ -39,7 +39,7 @@ public class CiffImporter {
             false,
             true,
             false,
-            IndexOptions.NONE,
+            IndexOptions.DOCS,
             DocValuesType.BINARY,
             -1,
             new HashMap<>(),
@@ -182,7 +182,7 @@ public class CiffImporter {
     }
 
     private void writePostings() throws IOException {
-        Fields fields = new CiffFields(header, postingsLists);
+        Fields fields = new CiffFields(header, postingsLists, docRecords);
 
         try (FieldsConsumer fieldsConsumer = codec.postingsFormat().fieldsConsumer(writeState);
                 NormsProducer normsProducer = new CiffNormsProducer(docRecords)) {
