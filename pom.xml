@@ -19,13 +19,16 @@
         <artifactId>appassembler-maven-plugin</artifactId>
         <version>2.1.0</version>
         <configuration>
-          <extraJvmArguments>-Xms512M -Xmx2G</extraJvmArguments>
           <repositoryLayout>flat</repositoryLayout>
           <useWildcardClassPath>true</useWildcardClassPath>
           <programs>
             <program>
               <mainClass>nl.ru.ciffimporter.CiffImporter</mainClass>
               <id>CiffImporter</id>
+              <jvmSettings>
+                <initialMemorySize>512m</initialMemorySize>
+                <maxMemorySize>4g</maxMemorySize>
+              </jvmSettings>
             </program>
           </programs>
         </configuration>
