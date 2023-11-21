@@ -4,20 +4,20 @@ import org.apache.lucene.codecs.NormsProducer;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.NumericDocValues;
 
-import static io.osirrc.ciff.CommonIndexFileFormat.DocRecord;
+import java.io.IOException;
 
 public class CiffNormsProducer extends NormsProducer {
 
-    private final DocRecord[] docRecords;
+    private final String input;
 
-    public CiffNormsProducer(DocRecord[] docRecords) {
-        this.docRecords = docRecords;
+    public CiffNormsProducer(String input) {
+        this.input = input;
     }
 
     @Override
-    public NumericDocValues getNorms(FieldInfo field) {
+    public NumericDocValues getNorms(FieldInfo field) throws IOException {
         if (field.name.equals(CiffImporter.CONTENTS)) {
-            return new CiffNorms(docRecords);
+            return new CiffNorms(input);
         }
         throw new IllegalArgumentException("Field '" + field + "' is not indexed in CIFF.");
     }

@@ -2,10 +2,8 @@ package nl.ru.ciffimporter;
 
 import org.apache.lucene.index.Terms;
 import org.apache.lucene.index.TermsEnum;
-import org.apache.lucene.util.BytesRef;
 
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.Iterator;
 
 import static io.osirrc.ciff.CommonIndexFileFormat.Header;
 import static io.osirrc.ciff.CommonIndexFileFormat.DocRecord;
@@ -13,15 +11,11 @@ import static io.osirrc.ciff.CommonIndexFileFormat.DocRecord;
 public class CiffIdTerms extends Terms {
 
     private final Header header;
-    private final SortedMap<BytesRef, DocRecord> docRecords;
+    private final Iterator<DocRecord> docRecords;
 
-    public CiffIdTerms(Header header, DocRecord[] docRecords) {
+    public CiffIdTerms(Header header, Iterator<DocRecord> docRecords) {
         this.header = header;
-
-        this.docRecords = new TreeMap<>();
-        for (DocRecord docRecord : docRecords) {
-            this.docRecords.put(new BytesRef(docRecord.getCollectionDocid()), docRecord);
-        }
+        this.docRecords = docRecords;
     }
 
     @Override

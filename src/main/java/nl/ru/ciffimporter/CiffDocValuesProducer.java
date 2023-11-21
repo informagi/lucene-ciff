@@ -4,20 +4,20 @@ import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.EmptyDocValuesProducer;
 import org.apache.lucene.index.FieldInfo;
 
-import static io.osirrc.ciff.CommonIndexFileFormat.DocRecord;
+import java.io.IOException;
 
 public class CiffDocValuesProducer extends EmptyDocValuesProducer {
 
-    private final DocRecord[] docRecords;
+    private final String input;
 
-    public CiffDocValuesProducer(DocRecord[] docRecords) {
-        this.docRecords = docRecords;
+    public CiffDocValuesProducer(String input) {
+        this.input = input;
     }
 
     @Override
-    public BinaryDocValues getBinary(FieldInfo field) {
-        if (field.name.equals("id")) {
-            return new CiffDocValues(docRecords);
+    public BinaryDocValues getBinary(FieldInfo field) throws IOException {
+        if (field.name.equals(CiffImporter.ID)) {
+            return new CiffDocValues(input);
         }
         throw new IllegalArgumentException("Field '" + field + "' is not indexed in CIFF.");
     }

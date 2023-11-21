@@ -2,10 +2,8 @@ package nl.ru.ciffimporter;
 
 import org.apache.lucene.index.Terms;
 import org.apache.lucene.index.TermsEnum;
-import org.apache.lucene.util.BytesRef;
 
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.Iterator;
 
 import static io.osirrc.ciff.CommonIndexFileFormat.Header;
 import static io.osirrc.ciff.CommonIndexFileFormat.PostingsList;
@@ -13,15 +11,11 @@ import static io.osirrc.ciff.CommonIndexFileFormat.PostingsList;
 public class CiffContentTerms extends Terms {
 
     private final Header header;
-    private final SortedMap<BytesRef, PostingsList> postingsLists;
+    private final Iterator<PostingsList> postingsLists;
 
-    public CiffContentTerms(Header header, PostingsList[] postingsLists) {
+    public CiffContentTerms(Header header, Iterator<PostingsList> postingsLists) {
         this.header = header;
-
-        this.postingsLists = new TreeMap<>();
-        for (PostingsList postingsList : postingsLists) {
-            this.postingsLists.put(new BytesRef(postingsList.getTerm()), postingsList);
-        }
+        this.postingsLists = postingsLists;
     }
 
     @Override
@@ -36,20 +30,12 @@ public class CiffContentTerms extends Terms {
 
     @Override
     public long getSumTotalTermFreq() {
-        long total = 0;
-        for (PostingsList postingsList : postingsLists.values()) {
-            total += postingsList.getCf();
-        }
-        return total;
+        return this.header.getTotalTermsInCollection();
     }
 
     @Override
     public long getSumDocFreq() {
-        long total = 0;
-        for (PostingsList postingsList : postingsLists.values()) {
-            total += postingsList.getDf();
-        }
-        return total;
+        throw new UnsupportedOperationException();
     }
 
     @Override

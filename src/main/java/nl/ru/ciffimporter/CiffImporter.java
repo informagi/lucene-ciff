@@ -11,21 +11,18 @@ import org.apache.lucene.store.TrackingDirectoryWrapper;
 import org.apache.lucene.util.StringHelper;
 import org.apache.lucene.util.Version;
 
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.*;
 
 import static io.osirrc.ciff.CommonIndexFileFormat.Header;
-import static io.osirrc.ciff.CommonIndexFileFormat.PostingsList;
 import static io.osirrc.ciff.CommonIndexFileFormat.DocRecord;
 
 public class CiffImporter {
+
+    private static final int NUM_TASKS = 6;
 
     public static final String ID = "id";
     public static final String CONTENTS = "contents";
@@ -56,7 +53,7 @@ public class CiffImporter {
             CONTENTS,
             CONTENTS_FIELD_NUM,
             false,
-            false,
+            true,
             false,
             IndexOptions.DOCS_AND_FREQS,
             DocValuesType.NONE,
@@ -91,64 +88,37 @@ public class CiffImporter {
             throw new IllegalArgumentException("Usage: CiffImporter INPUT OUTPUT [CODEC]");
         }
 
-        Header ciffHeader;
-        PostingsList[] postingsLists;
-        DocRecord[] docRecords;
-
-        try (InputStream inputStream = new FileInputStream(inputFile)) {
-            ciffHeader = Header.parseDelimitedFrom(inputStream);
-
-            postingsLists = new PostingsList[ciffHeader.getNumPostingsLists()];
-            for (int i = 0; i < ciffHeader.getNumPostingsLists(); i++) {
-                postingsLists[i] = PostingsList.parseDelimitedFrom(inputStream);
-            }
-
-            docRecords = new DocRecord[ciffHeader.getNumDocs()];
-            for (int i = 0; i < ciffHeader.getNumDocs(); i++) {
-                docRecords[i] = DocRecord.parseDelimitedFrom(inputStream);
-            }
-        } catch (IOException e) {
-            System.err.println("Exception while reading '" + inputFile + "'");
-            return;
-        }
-
-        new CiffImporter(ciffHeader, postingsLists, docRecords, codec, outputDirectory).importCiff();
+        new CiffImporter(inputFile, outputDirectory, codec).importCiff();
     }
 
-    private final Header header;
-    private final PostingsList[] postingsLists;
-    private final DocRecord[] docRecords;
-
+    private final String inputFile;
     private final Codec codec;
-    private TrackingDirectoryWrapper outputDirectory;
-    private SegmentInfo segmentInfo;
-    private IOContext writeContext;
-    private SegmentWriteState writeState;
+    private final TrackingDirectoryWrapper outputDirectory;
+    private final SegmentInfo segmentInfo;
+    private final IOContext writeContext;
+    private final SegmentWriteState writeState;
 
-    public CiffImporter(Header header, PostingsList[] postingsLists, DocRecord[] docRecords, Codec codec, String outputDirectory) {
-        this.header = header;
-        this.postingsLists = postingsLists;
-        this.docRecords = docRecords;
+    private final Header header;
+
+    public CiffImporter(String inputFile, String outputDirectory, Codec codec) throws IOException {
+        this.inputFile = inputFile;
         this.codec = codec;
 
-        try {
-            Path indexPath = Files.createDirectory(Paths.get(outputDirectory));
-            this.outputDirectory = new TrackingDirectoryWrapper(FSDirectory.open(indexPath));
-        } catch (IOException e) {
-            System.err.println("Could not create directory '" + outputDirectory + '"');
-            e.printStackTrace();
+        Path indexPath = Files.createDirectory(Paths.get(outputDirectory));
+        this.outputDirectory = new TrackingDirectoryWrapper(FSDirectory.open(indexPath));
 
-            return;
+        try (CiffReader reader = new CiffReader(this.inputFile)) {
+            this.header = reader.getHeader();
         }
 
-        this.writeContext = new IOContext(new FlushInfo(header.getNumDocs(), -1));
+        this.writeContext = new IOContext(new FlushInfo(this.header.getNumDocs(), -1));
 
         this.segmentInfo = new SegmentInfo(
             this.outputDirectory,
             Version.LATEST,
             Version.LATEST,
             "_0",
-            header.getNumDocs(),
+            this.header.getNumDocs(),
             false,
             codec,
             Collections.emptyMap(),
@@ -168,53 +138,67 @@ public class CiffImporter {
     }
 
     public void importCiff() throws IOException {
-        writePostings();
-        writeStoredFields();
-        writeDocValues();
-        writeNorms();
-        writeFieldInfos();
-        writeSegmentInfo();
+        runWithLogging(this::writePostings, 1, "postings");
+        runWithLogging(this::writeStoredFields, 2, "stored fields");
+        runWithLogging(this::writeDocValues, 3, "doc values");
+        runWithLogging(this::writeNorms, 4, "norms");
+        runWithLogging(this::writeFieldInfos, 5, "field infos");
+        runWithLogging(this::writeSegmentInfo, 6, "segment info");
 
-        System.out.println("CIFF IMPORT: generated the following Lucene files:");
+        System.err.println("CIFF import complete!");
+        System.err.println("Generated the following Lucene files:");
         for (String file : outputDirectory.listAll()) {
-            System.out.println("  " + file + ": " + outputDirectory.fileLength(file) + " bytes");
+            System.err.println("  " + file + ": " + outputDirectory.fileLength(file) + " bytes");
         }
     }
 
-    private void writePostings() throws IOException {
-        Fields fields = new CiffFields(header, postingsLists, docRecords);
+    private void runWithLogging(ImportTask r, int taskNum, String taskName) throws IOException {
+        System.err.printf("[%d/%d] Writing %s", taskNum, NUM_TASKS, taskName);
+        System.err.flush();
 
+        long start = System.currentTimeMillis();
+        r.run();
+        long end = System.currentTimeMillis();
+
+        System.err.printf(" (%.1fs)\n", (end - start) / 1000F);
+        System.err.flush();
+    }
+
+    private void writePostings() throws IOException {
         try (FieldsConsumer fieldsConsumer = codec.postingsFormat().fieldsConsumer(writeState);
-                NormsProducer normsProducer = new CiffNormsProducer(docRecords)) {
-            fieldsConsumer.write(fields, normsProducer);
+                CiffFields fields = new CiffFields(this.inputFile)) {
+            fieldsConsumer.write(fields, null);
         }
     }
 
     private void writeStoredFields() throws IOException {
-        StoredFieldsWriter writer = codec.storedFieldsFormat().fieldsWriter(outputDirectory, segmentInfo, writeContext);
+        try (CiffReader reader = new CiffReader(this.inputFile, true);
+                StoredFieldsWriter writer = codec.storedFieldsFormat().fieldsWriter(outputDirectory, segmentInfo, writeContext)) {
+            Iterator<DocRecord> docRecords = reader.getDocRecords();
+            while (docRecords.hasNext()) {
+                DocRecord doc = docRecords.next();
 
-        for (DocRecord docRecord : docRecords) {
-            writer.startDocument();
-            writer.writeField(ID_FIELD_INFO, new StringField(ID, docRecord.getCollectionDocid(), Field.Store.YES));
-            writer.finishDocument();
+                writer.startDocument();
+                writer.writeField(ID_FIELD_INFO, new StringField(ID, doc.getCollectionDocid(), Field.Store.YES));
+                writer.finishDocument();
+            }
+
+            writer.finish(header.getNumDocs());
         }
-
-        writer.finish(header.getNumDocs());
-        writer.close();
     }
 
     private void writeDocValues() throws IOException {
-        DocValuesConsumer consumer = codec.docValuesFormat().fieldsConsumer(writeState);
-        DocValuesProducer ciffValuesProducer = new CiffDocValuesProducer(docRecords);
-        consumer.addBinaryField(ID_FIELD_INFO, ciffValuesProducer);
-        consumer.close();
+        try (DocValuesConsumer consumer = codec.docValuesFormat().fieldsConsumer(writeState)) {
+            DocValuesProducer ciffValuesProducer = new CiffDocValuesProducer(this.inputFile);
+            consumer.addBinaryField(ID_FIELD_INFO, ciffValuesProducer);
+        }
     }
 
     private void writeNorms() throws IOException {
-        NormsConsumer normsConsumer = codec.normsFormat().normsConsumer(writeState);
-        CiffNormsProducer ciffNormsProducer = new CiffNormsProducer(docRecords);
-        normsConsumer.addNormsField(CONTENTS_FIELD_INFO, ciffNormsProducer);
-        normsConsumer.close();
+        try (NormsConsumer normsConsumer = codec.normsFormat().normsConsumer(writeState);
+                CiffNormsProducer ciffNormsProducer = new CiffNormsProducer(this.inputFile)) {
+            normsConsumer.addNormsField(CONTENTS_FIELD_INFO, ciffNormsProducer);
+        }
     }
 
     private void writeFieldInfos() throws IOException {
@@ -230,5 +214,9 @@ public class CiffImporter {
         SegmentCommitInfo segmentCommitInfo = new SegmentCommitInfo(segmentInfo, 0, 0, -1, -1, -1, StringHelper.randomId());
         segmentInfos.add(segmentCommitInfo);
         segmentInfos.commit(outputDirectory);
+    }
+
+    private interface ImportTask {
+        void run() throws IOException;
     }
 }

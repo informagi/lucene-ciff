@@ -6,38 +6,22 @@ import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.util.BytesRef;
 
 import java.util.Iterator;
-import java.util.Map;
-import java.util.SortedMap;
 
 import static io.osirrc.ciff.CommonIndexFileFormat.PostingsList;
 
 
 public class CiffContentTermsEnum extends BaseTermsEnum {
 
-    private final SortedMap<BytesRef, PostingsList> postingsLists;
-    private Iterator<Map.Entry<BytesRef, PostingsList>> iterator;
-    private Map.Entry<BytesRef, PostingsList> current;
+    private final Iterator<PostingsList> postingsLists;
+    private PostingsList currentPostingsList;
 
-    public CiffContentTermsEnum(SortedMap<BytesRef, PostingsList> postingsLists) {
+    public CiffContentTermsEnum(Iterator<PostingsList> postingsLists) {
         this.postingsLists = postingsLists;
-        this.iterator = postingsLists.entrySet().iterator();
     }
 
     @Override
     public SeekStatus seekCeil(BytesRef text) {
-        SortedMap<BytesRef, PostingsList> tailMap = postingsLists.tailMap(text);
-        if (tailMap.isEmpty()) {
-            return SeekStatus.END;
-        } else {
-            iterator = tailMap.entrySet().iterator();
-            current = iterator.next();
-
-            if (current.getKey().equals(text)) {
-                return SeekStatus.FOUND;
-            } else {
-                return SeekStatus.NOT_FOUND;
-            }
-        }
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -47,7 +31,7 @@ public class CiffContentTermsEnum extends BaseTermsEnum {
 
     @Override
     public BytesRef term() {
-        return current.getKey();
+        return new BytesRef(currentPostingsList.getTerm());
     }
 
     @Override
@@ -57,17 +41,17 @@ public class CiffContentTermsEnum extends BaseTermsEnum {
 
     @Override
     public int docFreq() {
-        return (int) current.getValue().getDf();
+        return (int) currentPostingsList.getDf();
     }
 
     @Override
     public long totalTermFreq() {
-        return current.getValue().getCf();
+        return currentPostingsList.getCf();
     }
 
     @Override
     public PostingsEnum postings(PostingsEnum reuse, int flags) {
-        return new CiffContentPostingsEnum(current.getValue().getPostingsList());
+        return new CiffContentPostingsEnum(currentPostingsList.getPostingsList());
     }
 
     @Override
@@ -77,8 +61,8 @@ public class CiffContentTermsEnum extends BaseTermsEnum {
 
     @Override
     public BytesRef next() {
-        if (iterator.hasNext()) {
-            current = iterator.next();
+        if (postingsLists.hasNext()) {
+            currentPostingsList = postingsLists.next();
             return term();
         }
         return null;

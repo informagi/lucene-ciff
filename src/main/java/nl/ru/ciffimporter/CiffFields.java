@@ -1,45 +1,52 @@
 package nl.ru.ciffimporter;
 
-import static io.osirrc.ciff.CommonIndexFileFormat.Header;
 import static io.osirrc.ciff.CommonIndexFileFormat.PostingsList;
 import static io.osirrc.ciff.CommonIndexFileFormat.DocRecord;
 
 import org.apache.lucene.index.Fields;
 import org.apache.lucene.index.Terms;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 
-public class CiffFields extends Fields {
+public class CiffFields extends Fields implements Closeable {
 
-    private final Header header;
-    private final PostingsList[] postingsLists;
-    private final DocRecord[] docRecords;
+    private final List<String> FIELDS = List.of(CiffImporter.CONTENTS, CiffImporter.ID);
 
-    public CiffFields(Header header, PostingsList[] postingsLists, DocRecord[] docRecords) {
-        this.header = header;
-        this.postingsLists = postingsLists;
-        this.docRecords = docRecords;
+    private final CiffReader reader;
+    private final Iterator<PostingsList> postingsLists;
+    private final Iterator<DocRecord> docRecords;
+
+    public CiffFields(String input) throws IOException {
+        this.reader = new CiffReader(input);
+        this.postingsLists = reader.getPostingsLists();
+        this.docRecords = reader.getDocRecords();
     }
 
     @Override
     public Iterator<String> iterator() {
-        List<String> fields = List.of(CiffImporter.CONTENTS, CiffImporter.ID);
-        return fields.iterator();
+        return FIELDS.iterator();
     }
 
     @Override
     public Terms terms(String field) {
         if (field.equals(CiffImporter.CONTENTS)) {
-            return new CiffContentTerms(header, postingsLists);
+            return new CiffContentTerms(reader.getHeader(), postingsLists);
         } else if (field.equals(CiffImporter.ID)) {
-            return new CiffIdTerms(header, docRecords);
+            return new CiffIdTerms(reader.getHeader(), docRecords);
         }
         throw new IllegalArgumentException("Field '" + field + "' is not indexed in CIFF.");
     }
 
     @Override
     public int size() {
-        return 1;
+        return FIELDS.size();
+    }
+
+    @Override
+    public void close() throws IOException {
+        this.reader.close();
     }
 }

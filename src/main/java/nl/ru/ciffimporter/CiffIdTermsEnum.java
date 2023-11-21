@@ -6,38 +6,22 @@ import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.util.BytesRef;
 
 import java.util.Iterator;
-import java.util.Map;
-import java.util.SortedMap;
 
 import static io.osirrc.ciff.CommonIndexFileFormat.DocRecord;
 
 
 public class CiffIdTermsEnum extends BaseTermsEnum {
 
-    private final SortedMap<BytesRef, DocRecord> docRecords;
-    private Iterator<Map.Entry<BytesRef, DocRecord>> iterator;
-    private Map.Entry<BytesRef, DocRecord> current;
+    private final Iterator<DocRecord> docRecords;
+    private DocRecord currentDoc;
 
-    public CiffIdTermsEnum(SortedMap<BytesRef, DocRecord> docRecords) {
+    public CiffIdTermsEnum(Iterator<DocRecord> docRecords) {
         this.docRecords = docRecords;
-        this.iterator = docRecords.entrySet().iterator();
     }
 
     @Override
     public SeekStatus seekCeil(BytesRef text) {
-        SortedMap<BytesRef, DocRecord> tailMap = docRecords.tailMap(text);
-        if (tailMap.isEmpty()) {
-            return SeekStatus.END;
-        } else {
-            iterator = tailMap.entrySet().iterator();
-            current = iterator.next();
-
-            if (current.getKey().equals(text)) {
-                return SeekStatus.FOUND;
-            } else {
-                return SeekStatus.NOT_FOUND;
-            }
-        }
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -47,7 +31,7 @@ public class CiffIdTermsEnum extends BaseTermsEnum {
 
     @Override
     public BytesRef term() {
-        return current.getKey();
+        return new BytesRef(currentDoc.getCollectionDocid());
     }
 
     @Override
@@ -67,7 +51,7 @@ public class CiffIdTermsEnum extends BaseTermsEnum {
 
     @Override
     public PostingsEnum postings(PostingsEnum reuse, int flags) {
-        return new CiffIdPostingsEnum(current.getValue());
+        return new CiffIdPostingsEnum(currentDoc);
     }
 
     @Override
@@ -77,8 +61,8 @@ public class CiffIdTermsEnum extends BaseTermsEnum {
 
     @Override
     public BytesRef next() {
-        if (iterator.hasNext()) {
-            current = iterator.next();
+        if (docRecords.hasNext()) {
+            currentDoc = docRecords.next();
             return term();
         }
         return null;

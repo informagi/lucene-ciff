@@ -4,26 +4,32 @@ import org.apache.lucene.index.NumericDocValues;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.SmallFloat;
 
+import java.io.IOException;
+import java.util.Iterator;
+
 import static io.osirrc.ciff.CommonIndexFileFormat.DocRecord;
 
 public class CiffNorms extends NumericDocValues {
 
-    private final DocRecord[] docRecords;
-    private int docID = -1;
+    private final CiffReader reader;
+    private final Iterator<DocRecord> docRecords;
 
-    public CiffNorms(DocRecord[] docRecords) {
-        this.docRecords = docRecords;
+    private int docID = -1;
+    private int length = -1;
+
+    public CiffNorms(String input) throws IOException {
+        this.reader = new CiffReader(input, true);
+        this.docRecords = reader.getDocRecords();
     }
 
     @Override
     public long longValue() {
-        return SmallFloat.intToByte4(docRecords[docID].getDoclength());
+        return SmallFloat.intToByte4(length);
     }
 
     @Override
     public boolean advanceExact(int target) {
-        this.docID = target;
-        return docID >= 0 && docID < docRecords.length;
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -33,26 +39,29 @@ public class CiffNorms extends NumericDocValues {
 
     @Override
     public int nextDoc() {
-        docID++;
+        if (this.docRecords.hasNext()) {
+            DocRecord doc = this.docRecords.next();
+            this.docID = doc.getDocid();
+            this.length = doc.getDoclength();
+        } else {
+            this.docID = DocIdSetIterator.NO_MORE_DOCS;
+            this.length = -1;
 
-        if (docID >= docRecords.length) {
-            docID = DocIdSetIterator.NO_MORE_DOCS;
+            try {
+                this.reader.close();
+            } catch (IOException ignored) {}
         }
 
-        return docID;
+        return this.docID();
     }
 
     @Override
     public int advance(int target) {
-        if (advanceExact(target)) {
-            return target;
-        } else {
-            return DocIdSetIterator.NO_MORE_DOCS;
-        }
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public long cost() {
-        return docRecords.length;
+        return this.reader.getHeader().getNumDocs();
     }
 }

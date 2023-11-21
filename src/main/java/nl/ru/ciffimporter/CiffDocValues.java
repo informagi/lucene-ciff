@@ -1,30 +1,35 @@
 package nl.ru.ciffimporter;
 
-
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BytesRef;
+
+import java.io.IOException;
+import java.util.Iterator;
 
 import static io.osirrc.ciff.CommonIndexFileFormat.DocRecord;
 
 public class CiffDocValues extends BinaryDocValues {
 
-    private final DocRecord[] docRecords;
-    private int docID = -1;
+    private final CiffReader reader;
+    private final Iterator<DocRecord> docRecords;
 
-    public CiffDocValues(DocRecord[] docRecords) {
-        this.docRecords = docRecords;
+    private int docID = -1;
+    private String collectionDocId = "";
+
+    public CiffDocValues(String input) throws IOException {
+        this.reader = new CiffReader(input, true);
+        this.docRecords = reader.getDocRecords();
     }
 
     @Override
     public BytesRef binaryValue() {
-        return new BytesRef(docRecords[docID].getCollectionDocid());
+        return new BytesRef(collectionDocId);
     }
 
     @Override
     public boolean advanceExact(int target) {
-        this.docID = target;
-        return docID >= 0 && docID < docRecords.length;
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -34,26 +39,29 @@ public class CiffDocValues extends BinaryDocValues {
 
     @Override
     public int nextDoc() {
-        docID++;
+        if (this.docRecords.hasNext()) {
+            DocRecord doc = this.docRecords.next();
+            this.docID = doc.getDocid();
+            this.collectionDocId = doc.getCollectionDocid();
+        } else {
+            this.docID = DocIdSetIterator.NO_MORE_DOCS;
+            this.collectionDocId = null;
 
-        if (docID >= docRecords.length) {
-            docID = DocIdSetIterator.NO_MORE_DOCS;
+            try {
+                this.reader.close();
+            } catch (IOException ignored) {}
         }
 
-        return docID;
+        return this.docID();
     }
 
     @Override
     public int advance(int target) {
-        if (advanceExact(target)) {
-            return target;
-        } else {
-            return DocIdSetIterator.NO_MORE_DOCS;
-        }
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public long cost() {
-        return docRecords.length;
+        return this.reader.getHeader().getNumDocs();
     }
 }
