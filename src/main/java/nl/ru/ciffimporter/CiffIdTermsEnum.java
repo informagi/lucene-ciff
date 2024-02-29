@@ -61,9 +61,23 @@ public class CiffIdTermsEnum extends BaseTermsEnum {
 
     @Override
     public BytesRef next() {
-        if (docRecords.hasNext()) {
-            currentDoc = docRecords.next();
-            return term();
+        // TODO: this currently skips records with duplicate document identifiers. Ideally, each document identifier
+        //  only occurs once per CIFF file, so we might need to revisit this later.
+        while (docRecords.hasNext()) {
+            final DocRecord newRecord = docRecords.next();
+
+            if (currentDoc == null) {
+                currentDoc = newRecord;
+                return term();
+            }
+
+            final BytesRef prevTerm = term();
+            currentDoc = newRecord;
+            final BytesRef newTerm = term();
+
+            if (!prevTerm.bytesEquals(newTerm)) {
+                return newTerm;
+            }
         }
         return null;
     }

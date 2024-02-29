@@ -62,6 +62,12 @@ public class CiffContentPostingsEnum extends PostingsEnum {
 
         Posting posting = postingsIterator.next();
 
+        // TODO: this currently skips postings with duplicate document identifiers. Ideally, each document identifier
+        //  only occurs once per CIFF file, so we might need to revisit this later.
+        if (posting.getDocid() == 0) {
+            return nextDoc();
+        }
+
         docID = docID == -1 ? posting.getDocid() : docID + posting.getDocid();
         freq = posting.getTf();
 
