@@ -1,8 +1,6 @@
 package nl.ru.ciffimporter;
 
 import org.apache.lucene.codecs.*;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.StringField;
 import org.apache.lucene.index.*;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.FlushInfo;
@@ -120,6 +118,7 @@ public class CiffImporter {
             "_0",
             this.header.getNumDocs(),
             false,
+            false,
             codec,
             Collections.emptyMap(),
             StringHelper.randomId(),
@@ -179,7 +178,7 @@ public class CiffImporter {
                 DocRecord doc = docRecords.next();
 
                 writer.startDocument();
-                writer.writeField(ID_FIELD_INFO, new StringField(ID, doc.getCollectionDocid(), Field.Store.YES));
+                writer.writeField(ID_FIELD_INFO, doc.getCollectionDocid());
                 writer.finishDocument();
             }
 
