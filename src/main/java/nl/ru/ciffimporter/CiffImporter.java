@@ -51,7 +51,7 @@ public class CiffImporter {
             CONTENTS,
             CONTENTS_FIELD_NUM,
             false,
-            true,
+            false,
             false,
             IndexOptions.DOCS_AND_FREQS,
             DocValuesType.NONE,
@@ -98,6 +98,9 @@ public class CiffImporter {
 
     private final Header header;
 
+    // We load the document lengths into memory instead of streaming them because they are frequently used when writing the postings
+    private CiffNormsProducer ciffNormsProducer;
+
     public CiffImporter(String inputFile, String outputDirectory, Codec codec) throws IOException {
         this.inputFile = inputFile;
         this.codec = codec;
@@ -108,6 +111,7 @@ public class CiffImporter {
         try (CiffReader reader = new CiffReader(this.inputFile)) {
             this.header = reader.getHeader();
         }
+        this.ciffNormsProducer = new CiffNormsProducer(this.inputFile);
 
         this.writeContext = new IOContext(new FlushInfo(this.header.getNumDocs(), -1));
 
@@ -166,7 +170,7 @@ public class CiffImporter {
     private void writePostings() throws IOException {
         try (FieldsConsumer fieldsConsumer = codec.postingsFormat().fieldsConsumer(writeState);
                 CiffFields fields = new CiffFields(this.inputFile)) {
-            fieldsConsumer.write(fields, null);
+            fieldsConsumer.write(fields, ciffNormsProducer);
         }
     }
 
@@ -194,8 +198,7 @@ public class CiffImporter {
     }
 
     private void writeNorms() throws IOException {
-        try (NormsConsumer normsConsumer = codec.normsFormat().normsConsumer(writeState);
-                CiffNormsProducer ciffNormsProducer = new CiffNormsProducer(this.inputFile)) {
+        try (NormsConsumer normsConsumer = codec.normsFormat().normsConsumer(writeState)) {
             normsConsumer.addNormsField(CONTENTS_FIELD_INFO, ciffNormsProducer);
         }
     }

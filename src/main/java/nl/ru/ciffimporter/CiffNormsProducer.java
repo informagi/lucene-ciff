@@ -9,6 +9,7 @@ import java.io.IOException;
 public class CiffNormsProducer extends NormsProducer {
 
     private final String input;
+    private CiffNorms norms;
 
     public CiffNormsProducer(String input) {
         this.input = input;
@@ -17,7 +18,11 @@ public class CiffNormsProducer extends NormsProducer {
     @Override
     public NumericDocValues getNorms(FieldInfo field) throws IOException {
         if (field.name.equals(CiffImporter.CONTENTS)) {
-            return new CiffNorms(input);
+            if (norms == null) {
+                norms = new CiffNorms(input);
+            }
+            norms.reset();
+            return norms;
         }
         throw new IllegalArgumentException("Field '" + field + "' is not indexed in CIFF.");
     }

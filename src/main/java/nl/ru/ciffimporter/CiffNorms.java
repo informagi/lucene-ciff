@@ -11,25 +11,51 @@ import static io.osirrc.ciff.CommonIndexFileFormat.DocRecord;
 
 public class CiffNorms extends NumericDocValues {
 
-    private final CiffReader reader;
-    private final Iterator<DocRecord> docRecords;
+    private int numDocs;
+    private int[] lengths;
 
     private int docID = -1;
-    private int length = -1;
 
     public CiffNorms(String input) throws IOException {
-        this.reader = new CiffReader(input, true);
-        this.docRecords = reader.getDocRecords();
+        try (CiffReader reader = new CiffReader(input, true)) {
+            this.numDocs = reader.getHeader().getNumDocs();
+            this.lengths = readLengths(reader);
+        }
+    }
+
+    public void reset() {
+        this.docID = -1;
+    }
+
+    private int[] readLengths(CiffReader reader) {
+        int[] lengths = new int[numDocs];
+
+        for (Iterator<DocRecord> docRecords = reader.getDocRecords(); docRecords.hasNext(); ) {
+            DocRecord doc = docRecords.next();
+            lengths[doc.getDocid()] = doc.getDoclength();
+        }
+
+        return lengths;
+    }
+
+    private boolean isValidDocID(int docID) {
+        return 0 <= docID && docID < numDocs;
     }
 
     @Override
     public long longValue() {
+        int length = isValidDocID(docID) ? lengths[docID] : -1;
         return SmallFloat.intToByte4(length);
     }
 
     @Override
     public boolean advanceExact(int target) {
-        throw new UnsupportedOperationException();
+        if (isValidDocID(target) && target >= docID) {
+            docID = target;
+        } else {
+            docID = DocIdSetIterator.NO_MORE_DOCS;
+        }
+        return docID == target;
     }
 
     @Override
@@ -39,20 +65,13 @@ public class CiffNorms extends NumericDocValues {
 
     @Override
     public int nextDoc() {
-        if (this.docRecords.hasNext()) {
-            DocRecord doc = this.docRecords.next();
-            this.docID = doc.getDocid();
-            this.length = doc.getDoclength();
-        } else {
-            this.docID = DocIdSetIterator.NO_MORE_DOCS;
-            this.length = -1;
+        docID++;
 
-            try {
-                this.reader.close();
-            } catch (IOException ignored) {}
+        if (!isValidDocID(docID)) {
+            docID = DocIdSetIterator.NO_MORE_DOCS;
         }
 
-        return this.docID();
+        return docID;
     }
 
     @Override
@@ -62,6 +81,6 @@ public class CiffNorms extends NumericDocValues {
 
     @Override
     public long cost() {
-        return this.reader.getHeader().getNumDocs();
+        return numDocs;
     }
 }
